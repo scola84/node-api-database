@@ -1,0 +1,13 @@
+{
+  "name": "@scola/api-database",
+  "version": "0.0.0",
+  "description": "Database",
+  "repository": "github:scola84/node-api-database",
+  "author": "M.C. van den Boogaart <scola@kvdb.name>",
+  "license": "MIT",
+  "main": "./index.js",
+  "jsnext:main": "./index.js",
+  "dependencies": {
+    "sprintf": "^0.1.5"
+  }
+}
