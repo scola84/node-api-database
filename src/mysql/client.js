@@ -1,13 +1,18 @@
+import { debuglog } from 'util';
 import MysqlConnection from './connection';
 
 export default class MysqlClient {
   constructor() {
+    this._log = debuglog('database');
+
     this._config = {};
     this._connections = {};
     this._mysql = null;
   }
 
   destroy() {
+    this._log('MysqlClient destroy');
+
     Object.keys(this._connections).forEach((name) => {
       this._connections[name].destroy();
     });
@@ -25,6 +30,8 @@ export default class MysqlClient {
   }
 
   connection(name) {
+    this._log('MysqlClient connection name=%s', name);
+
     if (typeof this._connections[name] === 'undefined') {
       this._connections[name] = new MysqlConnection()
         .mysql(this._mysql)

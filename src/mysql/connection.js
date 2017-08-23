@@ -1,12 +1,15 @@
 import sprintf from 'sprintf';
+import { debuglog } from 'util';
 import MysqlQuery from './query';
 
 export default class MysqlConnection {
   constructor() {
+    this._log = debuglog('database');
+
     this._config = null;
     this._database = null;
     this._host = null;
-    this._index = 0;
+    this._indices = {};
     this._mysql = null;
     this._pools = {};
     this._replication = null;
@@ -14,6 +17,8 @@ export default class MysqlConnection {
   }
 
   destroy() {
+    this._log('MysqlConnection destroy');
+
     Object.keys(this._pools).forEach((name) => {
       this._pools[name].end();
     });
@@ -43,14 +48,17 @@ export default class MysqlConnection {
   }
 
   get(shard = null) {
+    this._log('MysqlConnection get shard=%d host=%s',
+      shard, this._host);
+
     const args = [];
 
     if (shard !== null && this._shards > 0) {
-      args.push(Math.floor(shard / this._shards));
+      args.push(this._number(shard));
     }
 
     if (this._replication === true) {
-      args.push(this._index);
+      args.push(this.index(shard));
     }
 
     const host = sprintf(this._host, ...args);
@@ -65,6 +73,27 @@ export default class MysqlConnection {
     return this._pools[host];
   }
 
+  index(shard = null, update = false) {
+    let number = 0;
+
+    if (shard !== null) {
+      number = this._number(shard);
+    }
+
+    if (typeof this._indices[number] === 'undefined') {
+      this._indices[number] = 0;
+    }
+
+    if (update === true && this._replication === true) {
+      this._indices[number] ^= 1;
+    }
+
+    this._log('MysqlConnection index shard=%d update=%j index=%d',
+      shard, update, this._indices[number]);
+
+    return this._indices[number];
+  }
+
   mysql(value = null) {
     if (value === null) {
       return this._mysql;
@@ -75,9 +104,13 @@ export default class MysqlConnection {
   }
 
   query(query, values = null, callback = null) {
+    this._log('MysqlConnection query query=%s values=%j',
+      query, values);
+
     const instance = new MysqlQuery()
       .connection(this)
       .database(this._database)
+      .replication(this._replication)
       .query(query);
 
     if (values === null) {
@@ -87,9 +120,7 @@ export default class MysqlConnection {
     return instance.execute(values, callback);
   }
 
-  switch () {
-    if (this._replication === true) {
-      this._index ^= 1;
-    }
+  _number(shard) {
+    return Math.floor(shard / this._shards);
   }
 }

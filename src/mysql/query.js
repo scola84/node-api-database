@@ -2,10 +2,10 @@ import sprintf from 'sprintf';
 
 export default class MysqlQuery {
   constructor() {
-    this._attempt = 0;
     this._connection = null;
     this._database = null;
     this._query = null;
+    this._replication = null;
     this._shard = null;
   }
 
@@ -36,6 +36,15 @@ export default class MysqlQuery {
     return this;
   }
 
+  replication(value = null) {
+    if (value === null) {
+      return this._replication;
+    }
+
+    this._replication = value;
+    return this;
+  }
+
   shard(value = null) {
     if (value === null) {
       return this._shard;
@@ -45,8 +54,9 @@ export default class MysqlQuery {
     return this;
   }
 
-  execute(values, callback = null) {
+  execute(values, callback = null, retry = null) {
     if (typeof values === 'function') {
+      retry = callback;
       callback = values;
       values = null;
     }
@@ -57,19 +67,18 @@ export default class MysqlQuery {
       db: replace
     });
 
-    this._attempt += 1;
-
     this
       ._connection
       .get(this._shard)
       .query(query, values, (error, result) => {
-        if (this._error(error)) {
-          this._connection.switch();
+        retry = retry !== false &&
+          this._replication === true &&
+          this._error(error) === true;
 
-          if (this._attempt === 1) {
-            this.execute(values, callback);
-            return;
-          }
+        if (retry === true) {
+          this._connection.index(this._shard, true);
+          this.execute(values, callback, false);
+          return;
         }
 
         if (callback !== null) {
