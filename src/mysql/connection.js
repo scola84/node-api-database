@@ -48,7 +48,7 @@ export default class MysqlConnection {
   }
 
   get(shard = null) {
-    this._log('MysqlConnection get shard=%d host=%s',
+    this._log('MysqlConnection get shard=%j host=%s',
       shard, this._host);
 
     const args = [];
