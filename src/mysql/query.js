@@ -50,7 +50,7 @@ export default class MysqlQuery {
       return this._shard;
     }
 
-    this._shard = value;
+    this._shard = Number(value);
     return this;
   }
 
