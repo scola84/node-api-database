@@ -29,7 +29,7 @@ export default class MysqlClient {
     return this;
   }
 
-  connection(name) {
+  connection(name = 'default') {
     this._log('MysqlClient connection name=%s', name);
 
     if (typeof this._connections[name] === 'undefined') {
