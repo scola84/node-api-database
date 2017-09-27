@@ -2,11 +2,22 @@ import sprintf from 'sprintf';
 
 export default class MysqlQuery {
   constructor() {
+    this._cache = null;
     this._connection = null;
     this._database = null;
+    this._prefix = null;
     this._query = null;
     this._replication = null;
     this._shard = null;
+  }
+
+  cache(value = null) {
+    if (value === null) {
+      return this._cache;
+    }
+
+    this._cache = value;
+    return this;
   }
 
   connection(value = null) {
@@ -33,6 +44,15 @@ export default class MysqlQuery {
     }
 
     this._query = value;
+    return this;
+  }
+
+  prefix(value = null) {
+    if (value === null) {
+      return this._prefix;
+    }
+
+    this._prefix = value;
     return this;
   }
 
@@ -67,6 +87,27 @@ export default class MysqlQuery {
       db: replace
     });
 
+    if (this._prefix === null) {
+      this._execute(query, values, callback, retry);
+      return;
+    }
+
+    this._cache.get(this._prefix, [query, values], (error, result) => {
+      if (error) {
+        callback(error);
+        return;
+      }
+
+      if (result !== null) {
+        callback(null, result);
+        return;
+      }
+
+      this._execute(query, values, callback, retry);
+    });
+  }
+
+  _execute(query, values, callback, retry) {
     this
       ._connection
       .get(this._shard)
@@ -81,10 +122,21 @@ export default class MysqlQuery {
           return;
         }
 
-        if (callback !== null) {
-          callback(error, result);
+        if (error || this._prefix === null) {
+          this._finish(error, result, callback);
+          return;
         }
+
+        this._cache.set(this._prefix, [query, values], result, () => {
+          this._finish(error, result, callback);
+        });
       });
+  }
+
+  _finish(error, result, callback) {
+    if (callback !== null) {
+      callback(error, result);
+    }
   }
 
   _error(error) {

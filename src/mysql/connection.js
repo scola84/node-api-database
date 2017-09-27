@@ -6,6 +6,7 @@ export default class MysqlConnection {
   constructor() {
     this._log = debuglog('database');
 
+    this._cache = null;
     this._config = null;
     this._database = null;
     this._host = null;
@@ -22,6 +23,15 @@ export default class MysqlConnection {
     Object.keys(this._pools).forEach((name) => {
       this._pools[name].end();
     });
+  }
+
+  cache(value = null) {
+    if (value === null) {
+      return this._cache;
+    }
+
+    this._cache = value;
+    return this;
   }
 
   config(value) {
@@ -107,11 +117,13 @@ export default class MysqlConnection {
     this._log('MysqlConnection query query=%s values=%j',
       query, values);
 
-    const instance = new MysqlQuery()
-      .connection(this)
-      .database(this._database)
-      .replication(this._replication)
-      .query(query);
+    const instance = new MysqlQuery();
+
+    instance.connection(this);
+    instance.cache(this._cache);
+    instance.database(this._database);
+    instance.replication(this._replication);
+    instance.query(query);
 
     if (values === null) {
       return instance;
