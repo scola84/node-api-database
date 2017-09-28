@@ -5,6 +5,7 @@ export default class MysqlQuery {
     this._cache = null;
     this._connection = null;
     this._database = null;
+    this._hash = false;
     this._prefix = null;
     this._query = null;
     this._replication = null;
@@ -35,6 +36,15 @@ export default class MysqlQuery {
     }
 
     this._database = value;
+    return this;
+  }
+
+  hash(value = null) {
+    if (value === null) {
+      return this._hash;
+    }
+
+    this._hash = value;
     return this;
   }
 
@@ -92,19 +102,20 @@ export default class MysqlQuery {
       return;
     }
 
-    this._cache.get(this._prefix, [query, values], (error, result) => {
-      if (error) {
-        callback(error);
-        return;
-      }
+    this._cache.get(this._prefix, [query, values],
+      (error, data, hash) => {
+        if (error) {
+          callback(error);
+          return;
+        }
 
-      if (result !== null) {
-        callback(null, result);
-        return;
-      }
+        if (typeof data !== 'undefined') {
+          this._finish(null, data, hash, callback);
+          return;
+        }
 
-      this._execute(query, values, callback, retry);
-    });
+        this._execute(query, values, callback, retry);
+      });
   }
 
   _execute(query, values, callback, retry) {
@@ -123,19 +134,25 @@ export default class MysqlQuery {
         }
 
         if (error || this._prefix === null) {
-          this._finish(error, result, callback);
+          this._finish(error, result, null, callback);
           return;
         }
 
-        this._cache.set(this._prefix, [query, values], result, () => {
-          this._finish(error, result, callback);
-        });
+        this._cache.set(this._prefix, [query, values], result,
+          (cacheError, cacheData, cacheHash) => {
+            this._finish(cacheError, cacheData, cacheHash, callback);
+          });
       });
   }
 
-  _finish(error, result, callback) {
+  _finish(error, data, hash, callback) {
     if (callback !== null) {
-      callback(error, result);
+      if (this._hash === false) {
+        callback(error, data);
+        return;
+      }
+
+      callback(error, data, hash);
     }
   }
 
