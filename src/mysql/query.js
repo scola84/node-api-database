@@ -5,7 +5,6 @@ export default class MysqlQuery {
     this._cache = null;
     this._connection = null;
     this._database = null;
-    this._hash = false;
     this._prefix = null;
     this._query = null;
     this._replication = null;
@@ -36,15 +35,6 @@ export default class MysqlQuery {
     }
 
     this._database = value;
-    return this;
-  }
-
-  hash(value = null) {
-    if (value === null) {
-      return this._hash;
-    }
-
-    this._hash = value;
     return this;
   }
 
@@ -91,10 +81,8 @@ export default class MysqlQuery {
       values = null;
     }
 
-    const replace = sprintf(this._database, this._shard);
     const query = sprintf(this._query, {
-      database: replace,
-      db: replace
+      db: sprintf(this._database, this._shard)
     });
 
     if (this._prefix === null) {
@@ -102,15 +90,15 @@ export default class MysqlQuery {
       return;
     }
 
-    this._cache.get(this._prefix, [query, values],
-      (error, data, hash) => {
+    this._cache.get(this._prefix, this._field(query, values),
+      (error, data) => {
         if (error) {
           callback(error);
           return;
         }
 
         if (typeof data !== 'undefined') {
-          this._finish(null, data, hash, callback);
+          this._finish(null, data, callback);
           return;
         }
 
@@ -134,26 +122,25 @@ export default class MysqlQuery {
         }
 
         if (error || this._prefix === null) {
-          this._finish(error, result, null, callback);
+          this._finish(error, result, callback);
           return;
         }
 
-        this._cache.set(this._prefix, [query, values], result,
-          (cacheError, cacheData, cacheHash) => {
-            this._finish(cacheError, cacheData, cacheHash, callback);
+        this._cache.set(this._prefix, this._field(query, values), result,
+          (cacheError, cacheData) => {
+            this._finish(cacheError, cacheData, callback);
           });
       });
   }
 
-  _finish(error, data, hash, callback) {
+  _finish(error, data, callback) {
     if (callback !== null) {
-      if (this._hash === false) {
-        callback(error, data);
-        return;
-      }
-
-      callback(error, data, hash);
+      callback(error, data);
     }
+  }
+
+  _field(query, values = []) {
+    return query + String(values);
   }
 
   _error(error) {
